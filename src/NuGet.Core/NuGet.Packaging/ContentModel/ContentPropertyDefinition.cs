@@ -4,6 +4,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using NuGet.Frameworks;
+using static NuGet.Client.ManagedCodeConventions;
 
 namespace NuGet.ContentModel
 {
@@ -27,6 +29,16 @@ namespace NuGet.ContentModel
         {
         }
 
+#pragma warning disable RS0016 // Add public types and members to the declared API
+        public ContentPropertyDefinition(
+#pragma warning restore RS0016 // Add public types and members to the declared API
+            string name,
+            ParserType parserType,
+            Dictionary<string, NuGetFramework> framework)
+            : this(name, parserType, null, null, null, false, framework)
+        {
+        }
+
         public ContentPropertyDefinition(
             string name,
             Func<object, object, bool> compatibilityTest)
@@ -42,11 +54,33 @@ namespace NuGet.ContentModel
         {
         }
 
+#pragma warning disable RS0016 // Add public types and members to the declared API
+        public ContentPropertyDefinition(
+#pragma warning restore RS0016 // Add public types and members to the declared API
+            string name,
+            ParserType parserType,
+            Func<object, object, bool> compatibilityTest,
+            Dictionary<string, NuGetFramework> framework)
+            : this(name, parserType, compatibilityTest, null, null, false, framework)
+        {
+        }
+
         public ContentPropertyDefinition(string name,
             Func<string, PatternTable, object> parser,
             Func<object, object, bool> compatibilityTest,
             Func<object, object, object, int> compareTest)
             : this(name, parser, compatibilityTest, compareTest, null, false)
+        {
+        }
+
+#pragma warning disable RS0016 // Add public types and members to the declared API
+        public ContentPropertyDefinition(string name,
+#pragma warning restore RS0016 // Add public types and members to the declared API
+           ParserType parserType,
+           Func<object, object, bool> compatibilityTest,
+           Func<object, object, object, int> compareTest,
+           Dictionary<string, NuGetFramework> framework)
+           : this(name, parserType, compatibilityTest, compareTest, null, false, framework)
         {
         }
 
@@ -62,6 +96,17 @@ namespace NuGet.ContentModel
             Func<string, PatternTable, object> parser,
             IEnumerable<string> fileExtensions)
             : this(name, parser, null, null, fileExtensions, false)
+        {
+        }
+
+#pragma warning disable RS0016 // Add public types and members to the declared API
+        public ContentPropertyDefinition(
+#pragma warning restore RS0016 // Add public types and members to the declared API
+            string name,
+            ParserType parserType,
+            IEnumerable<string> fileExtensions,
+            Dictionary<string, NuGetFramework> framework)
+            : this(name, parserType, null, null, fileExtensions, false, framework)
         {
         }
 
@@ -82,6 +127,18 @@ namespace NuGet.ContentModel
         {
         }
 
+#pragma warning disable RS0016 // Add public types and members to the declared API
+        public ContentPropertyDefinition(
+#pragma warning restore RS0016 // Add public types and members to the declared API
+            string name,
+            ParserType parserType,
+            IEnumerable<string> fileExtensions,
+            bool allowSubfolders,
+            Dictionary<string, NuGetFramework> framework)
+            : this(name, parserType, null, null, fileExtensions, allowSubfolders, framework)
+        {
+        }
+
         public ContentPropertyDefinition(
             string name,
             Func<string, PatternTable, object> parser,
@@ -98,6 +155,26 @@ namespace NuGet.ContentModel
             FileExtensionAllowSubFolders = allowSubfolders;
         }
 
+#pragma warning disable RS0016 // Add public types and members to the declared API
+        public ContentPropertyDefinition(
+#pragma warning restore RS0016 // Add public types and members to the declared API
+            string name,
+            ParserType parserType,
+            Func<object, object, bool> compatibilityTest,
+            Func<object, object, object, int> compareTest,
+            IEnumerable<string> fileExtensions,
+            bool allowSubfolders,
+            Dictionary<string, NuGetFramework> framework)
+        {
+            Name = name;
+            _parserType = parserType;
+            CompatibilityTest = compatibilityTest ?? EqualsTest;
+            CompareTest = compareTest;
+            FileExtensions = fileExtensions?.ToList();
+            FileExtensionAllowSubFolders = allowSubfolders;
+            _framework = framework;
+        }
+
         public string Name { get; }
 
         public List<string> FileExtensions { get; }
@@ -105,6 +182,9 @@ namespace NuGet.ContentModel
         public bool FileExtensionAllowSubFolders { get; }
 
         public Func<string, PatternTable, object> Parser { get; }
+
+        private Dictionary<string, NuGetFramework> _framework;
+        private ParserType _parserType;
 
         public virtual bool TryLookup(string name, PatternTable table, out object value)
         {
@@ -132,6 +212,45 @@ namespace NuGet.ContentModel
             if (Parser != null)
             {
                 value = Parser.Invoke(name, table);
+                if (value != null)
+                {
+                    return true;
+                }
+            }
+
+            value = null;
+            return false;
+        }
+
+#pragma warning disable RS0016 // Add public types and members to the declared API
+        public virtual bool TryLookup2(string name, PatternTable table, out object value)
+#pragma warning restore RS0016 // Add public types and members to the declared API
+        {
+            //string name = path.Substring(startIndex, length);
+            if (name == null)
+            {
+                value = null;
+                return false;
+            }
+
+            if (FileExtensions?.Count > 0)
+            {
+                if (FileExtensionAllowSubFolders || !ContainsSlash(name))
+                {
+                    foreach (var fileExtension in FileExtensions)
+                    {
+                        if (name.EndsWith(fileExtension, StringComparison.OrdinalIgnoreCase))
+                        {
+                            value = name;
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            if (_parserType != 0)
+            {
+                value = Client.ManagedCodeConventions.parseAll(_parserType, _framework, name, table);
                 if (value != null)
                 {
                     return true;

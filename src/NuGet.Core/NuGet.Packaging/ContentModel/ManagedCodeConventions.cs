@@ -17,25 +17,61 @@ namespace NuGet.Client
     /// </summary>
     public class ManagedCodeConventions
     {
+#pragma warning disable RS0016 // Add public types and members to the declared API
+        public enum ParserType
+
+        {
+            Local_parser = 1,
+            AllowEmptyFolderParser = 2,
+            CodeLanguage_Parser = 3,
+            All_strings = 4,
+            TargetFrameworkName_Parser = 5
+
+        }
+
+#pragma warning disable IDE1006 // Naming Styles
+        public static object parseAll(ParserType parserType,
+#pragma warning restore IDE1006 // Naming Styles
+            Dictionary<string, NuGetFramework> framework,
+            string name,
+            PatternTable table)
+        {
+            switch (parserType)
+            {
+                case ParserType.Local_parser:
+                    return Locale_Parser(name, table);
+                case ParserType.AllowEmptyFolderParser:
+                    return AllowEmptyFolderParser(name, table);
+                case ParserType.CodeLanguage_Parser:
+                    return CodeLanguage_Parser(name, table);
+                case ParserType.All_strings:
+                    return name;
+                case ParserType.TargetFrameworkName_Parser:
+                    return TargetFrameworkName_Parser(name, table, framework);
+                default: return null;
+            }
+        }
+
+#pragma warning restore RS0016 // Add public types and members to the declared API
         private static readonly ContentPropertyDefinition LocaleProperty = new ContentPropertyDefinition(PropertyNames.Locale,
-            parser: Locale_Parser);
+            parserType: ParserType.Local_parser, framework: null);
 
         private static readonly ContentPropertyDefinition AnyProperty = new ContentPropertyDefinition(
             PropertyNames.AnyValue,
-            parser: (o, t) => o); // Identity parser, all strings are valid for any
+            parserType: ParserType.All_strings, null); // Identity parser, all strings are valid for any
         private static readonly ContentPropertyDefinition AssemblyProperty = new ContentPropertyDefinition(PropertyNames.ManagedAssembly,
-            parser: AllowEmptyFolderParser,
-            fileExtensions: new[] { ".dll", ".winmd", ".exe" });
+            parserType: ParserType.AllowEmptyFolderParser,
+            fileExtensions: new[] { ".dll", ".winmd", ".exe" }, null);
         private static readonly ContentPropertyDefinition MSBuildProperty = new ContentPropertyDefinition(PropertyNames.MSBuild,
-            parser: AllowEmptyFolderParser,
-            fileExtensions: new[] { ".targets", ".props" });
+            parserType: ParserType.AllowEmptyFolderParser,
+            fileExtensions: new[] { ".targets", ".props" }, null);
         private static readonly ContentPropertyDefinition SatelliteAssemblyProperty = new ContentPropertyDefinition(PropertyNames.SatelliteAssembly,
-            parser: AllowEmptyFolderParser,
-            fileExtensions: new[] { ".resources.dll" });
+            parserType: ParserType.AllowEmptyFolderParser,
+            fileExtensions: new[] { ".resources.dll" }, null);
 
         private static readonly ContentPropertyDefinition CodeLanguageProperty = new ContentPropertyDefinition(
             PropertyNames.CodeLanguage,
-            parser: CodeLanguage_Parser);
+            parserType: ParserType.CodeLanguage_Parser, null);
 
         private static readonly Dictionary<string, object> NetTFMTable = new Dictionary<string, object>
         {
@@ -90,14 +126,14 @@ namespace NuGet.Client
 
             props[PropertyNames.RuntimeIdentifier] = new ContentPropertyDefinition(
                 PropertyNames.RuntimeIdentifier,
-                parser: (o, t) => o, // Identity parser, all strings are valid runtime ids :)
-                compatibilityTest: RuntimeIdentifier_CompatibilityTest);
+                parserType: ParserType.All_strings, // Identity parser, all strings are valid runtime ids :)
+                compatibilityTest: RuntimeIdentifier_CompatibilityTest, _frameworkCache);
 
             props[PropertyNames.TargetFrameworkMoniker] = new ContentPropertyDefinition(
                 PropertyNames.TargetFrameworkMoniker,
-                parser: TargetFrameworkName_Parser,
+                parserType: ParserType.TargetFrameworkName_Parser,
                 compatibilityTest: TargetFrameworkName_CompatibilityTest,
-                compareTest: TargetFrameworkName_NearestCompareTest);
+                compareTest: TargetFrameworkName_NearestCompareTest, _frameworkCache);
 
             Properties = new ReadOnlyDictionary<string, ContentPropertyDefinition>(props);
 
@@ -163,9 +199,10 @@ namespace NuGet.Client
             return null;
         }
 
-        private object TargetFrameworkName_Parser(
+        private static object TargetFrameworkName_Parser(
             string name,
-            PatternTable table)
+            PatternTable table,
+            Dictionary<string, NuGetFramework> frameworkCache)
         {
             object obj = null;
 
@@ -182,11 +219,11 @@ namespace NuGet.Client
             if (!string.IsNullOrEmpty(name))
             {
                 NuGetFramework cachedResult;
-                if (!_frameworkCache.TryGetValue(name, out cachedResult))
+                if (!frameworkCache.TryGetValue(name, out cachedResult))
                 {
                     // Parse and add the framework to the cache
                     cachedResult = TargetFrameworkName_ParserCore(name);
-                    _frameworkCache.Add(name, cachedResult);
+                    frameworkCache.Add(name, cachedResult);
                 }
 
                 return cachedResult;
