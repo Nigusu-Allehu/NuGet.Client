@@ -33,9 +33,16 @@ namespace NuGet.Client
         public static object parseAll(ParserType parserType,
 #pragma warning restore IDE1006 // Naming Styles
             Dictionary<string, NuGetFramework> framework,
-            string name,
+            string path,
+            int startIndex,
+            int length,
             PatternTable table)
         {
+#if NET472
+            string name = path.Substring(startIndex, length);
+#else
+            string name = path.AsSpan(startIndex, length).ToString();
+#endif  
             switch (parserType)
             {
                 case ParserType.Local_parser:

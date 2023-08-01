@@ -223,11 +223,10 @@ namespace NuGet.ContentModel
         }
 
 #pragma warning disable RS0016 // Add public types and members to the declared API
-        public virtual bool TryLookup2(string name, PatternTable table, out object value)
+        public virtual bool TryLookup2(string path, int startIndex, int length, PatternTable table, out object value)
 #pragma warning restore RS0016 // Add public types and members to the declared API
         {
-            //string name = path.Substring(startIndex, length);
-            if (name == null)
+            if (path == null || startIndex < 0 || path.Length < startIndex + length)
             {
                 value = null;
                 return false;
@@ -235,22 +234,22 @@ namespace NuGet.ContentModel
 
             if (FileExtensions?.Count > 0)
             {
-                if (FileExtensionAllowSubFolders || !ContainsSlash(name))
+                if (FileExtensionAllowSubFolders || !ContainsSlash(path, startIndex, length))
                 {
                     foreach (var fileExtension in FileExtensions)
                     {
-                        if (name.EndsWith(fileExtension, StringComparison.OrdinalIgnoreCase))
+                        if (string.Compare(path, startIndex, fileExtension, 0, fileExtension.Length, StringComparison.OrdinalIgnoreCase) >= 0)
                         {
-                            value = name;
+                            value = path.Substring(startIndex, length);
                             return true;
                         }
                     }
                 }
             }
-
+            //string name = path.Substring(startIndex, length);
             if (_parserType != 0)
             {
-                value = Client.ManagedCodeConventions.parseAll(_parserType, _framework, name, table);
+                value = parseAll(_parserType, _framework, path, startIndex, length, table);
                 if (value != null)
                 {
                     return true;
@@ -260,7 +259,6 @@ namespace NuGet.ContentModel
             value = null;
             return false;
         }
-
         private static bool ContainsSlash(string name)
         {
             var containsSlash = false;
@@ -274,6 +272,19 @@ namespace NuGet.ContentModel
             }
 
             return containsSlash;
+        }
+
+        private static bool ContainsSlash(string path, int startIndex, int length)
+        {
+            for (int i = startIndex; i < startIndex + length; i++)
+            {
+                if (path[i] == '/' || path[i] == '\\')
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public Func<object, object, bool> CompatibilityTest { get; }
