@@ -71,7 +71,7 @@ namespace NuGet.ContentModel.Infrastructure
             foreach (var segment in _segments)
             {
                 int endIndex;
-                if (segment.TryMatch(ref item, path, propertyDefinitions, startIndex, out endIndex))
+                if (segment.TryMatch(ref item, path.AsSpan(), propertyDefinitions, startIndex, out endIndex))
                 {
                     startIndex = endIndex;
                     continue;
@@ -107,7 +107,7 @@ namespace NuGet.ContentModel.Infrastructure
 
         private abstract class Segment
         {
-            internal abstract bool TryMatch(ref ContentItem item, string path, IReadOnlyDictionary<string, ContentPropertyDefinition> propertyDefinitions, int startIndex, out int endIndex);
+            internal abstract bool TryMatch(ref ContentItem item, ReadOnlySpan<char> path, IReadOnlyDictionary<string, ContentPropertyDefinition> propertyDefinitions, int startIndex, out int endIndex);
         }
 
         [DebuggerDisplay("{_pattern.Substring(_start, _length)}")]
@@ -126,14 +126,14 @@ namespace NuGet.ContentModel.Infrastructure
 
             internal override bool TryMatch(
                 ref ContentItem item,
-                string path,
+                ReadOnlySpan<char> path,
                 IReadOnlyDictionary<string, ContentPropertyDefinition> propertyDefinitions,
                 int startIndex,
                 out int endIndex)
             {
                 if (path.Length >= startIndex + _length)
                 {
-                    if (string.Compare(path, startIndex, _pattern, _start, _length, StringComparison.OrdinalIgnoreCase) == 0)
+                    if (string.Compare(path.ToString(), startIndex, _pattern, _start, _length, StringComparison.OrdinalIgnoreCase) == 0)
                     {
                         endIndex = startIndex + _length;
                         return true;
@@ -162,7 +162,7 @@ namespace NuGet.ContentModel.Infrastructure
 
             internal override bool TryMatch(
                 ref ContentItem item,
-                string path,
+                ReadOnlySpan<char> path,
                 IReadOnlyDictionary<string, ContentPropertyDefinition> propertyDefinitions,
                 int startIndex,
                 out int endIndex)
@@ -175,8 +175,9 @@ namespace NuGet.ContentModel.Infrastructure
 
                 for (var scanIndex = startIndex; scanIndex != path.Length;)
                 {
-                    var delimiterIndex = path.Length;
-                    for (var i = scanIndex + 1; i < path.Length; i++)
+                    // find the index of the delimiter and if not found and we have a delimiter, break
+                    int delimiterIndex = path.Length;
+                    for (int i = scanIndex + 1; i < path.Length; i++)
                     {
                         if (path[i] == _delimiter)
                         {
@@ -185,27 +186,34 @@ namespace NuGet.ContentModel.Infrastructure
                         }
                     }
 
+
                     if (delimiterIndex == path.Length
                         && _delimiter != '\0')
                     {
                         break;
                     }
+
+                    // we found a delimiter at delimiterIndex, now try to match the substring from
+                    // start index to the delimiterIndex using the propertyDefinition of the token
                     object value;
-                    if (propertyDefinition.TryLookup(path.AsSpan(startIndex, delimiterIndex - startIndex), _table, out value))
+                    if (propertyDefinition.TryLookup(path.Slice(startIndex, delimiterIndex - startIndex), _table, out value))
                     {
+                        // The parser for the specific property definition took the substring and returned the value to be
+                        // stored in the properties of the content item
                         if (!_matchOnly)
                         {
+                            // Since it is not a match only token go a head and save the token and properties
                             // Adding property, create item if not already created
                             if (item == null)
                             {
                                 item = new ContentItem
                                 {
-                                    Path = path
+                                    Path = path.ToString()
                                 };
                             }
                             if (StringComparer.Ordinal.Equals(_token, "tfm"))
                             {
-                                item.Properties.Add("tfm_raw", path.AsSpan().Slice(startIndex, delimiterIndex - startIndex).ToString());
+                                item.Properties.Add("tfm_raw", path.Slice(startIndex, delimiterIndex - startIndex).ToString());
                             }
                             item.Properties.Add(_token, value);
                         }
