@@ -157,6 +157,57 @@ namespace NuGet.ContentModel
             return containsSlash;
         }
 
+#pragma warning disable RS0016 // Add public types and members to the declared API
+        public virtual bool TryLookup(ReadOnlySpan<char> name, PatternTable table, out object value)
+#pragma warning restore RS0016 // Add public types and members to the declared API
+        {
+            if (name == null)
+            {
+                value = null;
+                return false;
+            }
+
+            if (FileExtensions?.Count > 0)
+            {
+                if (FileExtensionAllowSubFolders || !ContainsSlash(name))
+                {
+                    foreach (var fileExtension in FileExtensions)
+                    {
+                        if (name.EndsWith(fileExtension.AsSpan(), StringComparison.OrdinalIgnoreCase))
+                        {
+                            value = name.ToString();
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            if (Parser != null)
+            {
+                value = Parser.Invoke(name.ToString(), table);
+                if (value != null)
+                {
+                    return true;
+                }
+            }
+
+            value = null;
+            return false;
+        }
+
+        private static bool ContainsSlash(ReadOnlySpan<char> name)
+        {
+            foreach (var ch in name)
+            {
+                if (ch == '/' || ch == '\\')
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public Func<object, object, bool> CompatibilityTest { get; }
 
         /// <summary>
