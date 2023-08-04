@@ -38,11 +38,7 @@ namespace NuGet.Client
             int length,
             PatternTable table)
         {
-#if NET472
-            string name = path.Substring(startIndex, length);
-#else
             string name = path.AsSpan(startIndex, length).ToString();
-#endif  
             switch (parserType)
             {
                 case ParserType.Local_parser:

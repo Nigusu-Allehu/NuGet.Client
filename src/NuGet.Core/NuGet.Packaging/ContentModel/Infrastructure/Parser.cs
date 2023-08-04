@@ -71,28 +71,11 @@ namespace NuGet.ContentModel.Infrastructure
             foreach (var segment in _segments)
             {
                 int endIndex;
-                if (segment is LiteralSegment)
+
+                if (segment.TryMatch(ref item, path, propertyDefinitions, startIndex, out endIndex))
                 {
-                    LiteralSegment literalSegment = (LiteralSegment)segment;
-                    if (literalSegment.TryMatch(ref item, path, startIndex, out endIndex))
-                    {
-                        startIndex = endIndex;
-                        continue;
-                    }
-                }
-                else if (segment is TokenSegment)
-                {
-                    ContentPropertyDefinition propertyDefinition;
-                    TokenSegment tokenSegment = (TokenSegment)segment;
-                    if (!propertyDefinitions.TryGetValue(tokenSegment.Token, out propertyDefinition))
-                    {
-                        throw new Exception(string.Format(CultureInfo.CurrentCulture, "Unable to find property definition for {{{0}}}", tokenSegment.Token));
-                    }
-                    if (segment.TryMatch(ref item, path, ref propertyDefinition, startIndex, out endIndex))
-                    {
-                        startIndex = endIndex;
-                        continue;
-                    }
+                    startIndex = endIndex;
+                    continue;
                 }
                 return null;
             }
@@ -125,8 +108,7 @@ namespace NuGet.ContentModel.Infrastructure
 
         private abstract class Segment
         {
-            internal abstract bool TryMatch(ref ContentItem item, string path, ref ContentPropertyDefinition propertyDefinition, int startIndex, out int endIndex);
-            internal abstract bool TryMatch(ref ContentItem item, string path, int startIndex, out int endIndex);
+            internal abstract bool TryMatch(ref ContentItem item, string path, IReadOnlyDictionary<string, ContentPropertyDefinition> propertyDefinitions, int startIndex, out int endIndex);
         }
 
         [DebuggerDisplay("{_pattern.Substring(_start, _length)}")]
@@ -146,6 +128,7 @@ namespace NuGet.ContentModel.Infrastructure
             internal override bool TryMatch(
                 ref ContentItem item,
                 string path,
+                IReadOnlyDictionary<string, ContentPropertyDefinition> propertyDefinitions,
                 int startIndex,
                 out int endIndex)
             {
@@ -161,10 +144,7 @@ namespace NuGet.ContentModel.Infrastructure
                 return false;
             }
 
-            internal override bool TryMatch(ref ContentItem item, string path, ref ContentPropertyDefinition propertyDefinition, int startIndex, out int endIndex)
-            {
-                throw new NotImplementedException();
-            }
+
         }
 
         [DebuggerDisplay("Token = {_token}, Delimiter = {_delimiter}, MatchOnly = {_matchOnly}")]
@@ -183,19 +163,19 @@ namespace NuGet.ContentModel.Infrastructure
                 _table = table;
             }
 
-            public string Token
-            {
-                get { return _token; }
-            }
 
             internal override bool TryMatch(
                 ref ContentItem item,
                 string path,
-                ref ContentPropertyDefinition propertyDefinition,
+                IReadOnlyDictionary<string, ContentPropertyDefinition> propertyDefinitions,
                 int startIndex,
                 out int endIndex)
             {
-
+                ContentPropertyDefinition propertyDefinition;
+                if (!propertyDefinitions.TryGetValue(_token, out propertyDefinition))
+                {
+                    throw new Exception(string.Format(CultureInfo.CurrentCulture, "Unable to find property definition for {{{0}}}", _token));
+                }
                 for (var scanIndex = startIndex; scanIndex != path.Length;)
                 {
                     var delimiterIndex = path.Length;
@@ -229,11 +209,7 @@ namespace NuGet.ContentModel.Infrastructure
                             }
                             if (StringComparer.Ordinal.Equals(_token, "tfm"))
                             {
-#if NET472
-                                item.Properties.Add("tfm_raw", path.Substring(startIndex, delimiterIndex - startIndex));
-#else
                                 item.Properties.Add("tfm_raw", path.AsSpan(startIndex, delimiterIndex - startIndex).ToString());
-#endif
                             }
                             item.Properties.Add(_token, value);
                         }
@@ -246,10 +222,6 @@ namespace NuGet.ContentModel.Infrastructure
                 return false;
             }
 
-            internal override bool TryMatch(ref ContentItem item, string path, int startIndex, out int endIndex)
-            {
-                throw new NotImplementedException();
-            }
         }
     }
 }
