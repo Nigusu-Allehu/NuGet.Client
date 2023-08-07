@@ -68,7 +68,14 @@ namespace NuGet.Packaging
 
         public abstract IEnumerable<string> GetFiles();
 
+#pragma warning disable RS0016 // Add public types and members to the declared API
+        public abstract IEnumerable<List<string>> GetFilesTokenized();
+#pragma warning restore RS0016 // Add public types and members to the declared API
         public abstract IEnumerable<string> GetFiles(string folder);
+
+#pragma warning disable RS0016 // Add public types and members to the declared API
+        public abstract IEnumerable<List<string>> GetFilesTokenized(string folder);
+#pragma warning restore RS0016 // Add public types and members to the declared API
 
         public abstract IEnumerable<string> CopyFiles(
             string destination,
@@ -425,30 +432,32 @@ namespace NuGet.Packaging
 
         protected IEnumerable<FrameworkSpecificGroup> GetFileGroups(string folder)
         {
-            var groups = new Dictionary<NuGetFramework, List<string>>(NuGetFrameworkFullComparer.Instance);
+            var groups = new Dictionary<NuGetFramework, List<List<string>>>(NuGetFrameworkFullComparer.Instance);
             var allowSubFolders = true;
 
-            foreach (var path in GetFiles(folder))
+            foreach (var pathTokenized in GetFilesTokenized(folder))
             {
                 // Use the known framework or if the folder did not parse, use the Any framework and consider it a sub folder
-                var framework = GetFrameworkFromPath(path, allowSubFolders);
+                //var path = string.Join("/", pathTokenized);
+                var framework = GetFrameworkFromPathTokens(pathTokenized, allowSubFolders);
 
-                List<string> items = null;
+                List<List<string>> items = null;
                 if (!groups.TryGetValue(framework, out items))
                 {
-                    items = new List<string>();
+                    items = new List<List<string>>();
                     groups.Add(framework, items);
                 }
 
-                items.Add(path);
+                items.Add(pathTokenized);
             }
-
+            var pathComparer = new TokenizedPathCompare();
             // Sort the groups by framework, and the items by ordinal string compare to keep things deterministic
             foreach ((var framework, var items) in groups.OrderBy(e => e.Key, NuGetFrameworkSorter.Instance))
             {
-                yield return new FrameworkSpecificGroup(framework, items.OrderBy(e => e, StringComparer.OrdinalIgnoreCase));
+                yield return new FrameworkSpecificGroup(framework, items.OrderBy(e => e, pathComparer));
             }
         }
+
 
         protected NuGetFramework GetFrameworkFromPath(string path, bool allowSubFolders = false)
         {
@@ -483,6 +492,41 @@ namespace NuGet.Packaging
                 {
                     // the folder name is a known target framework
                     framework = parsedFramework;
+                }
+            }
+
+            return framework;
+        }
+#pragma warning disable RS0016 // Add public types and members to the declared API
+        protected NuGetFramework GetFrameworkFromPathTokens(List<string> pathTokens, bool allowSubFolders = false)
+#pragma warning restore RS0016 // Add public types and members to the declared API
+        {
+            var framework = NuGetFramework.AnyFramework;
+
+            // ignore paths that are too short, and ones that have additional sub directories
+            if (pathTokens.Count == 3 || (pathTokens.Count > 3 && allowSubFolders))
+            {
+                var folderName = pathTokens[1];
+
+                try
+                {
+                    var parsedFramework = NuGetFramework.ParseFolder(folderName, FrameworkProvider);
+                    if (parsedFramework.IsSpecificFramework)
+                    {
+                        // the folder name is a known target framework
+                        framework = parsedFramework;
+                    }
+                }
+                catch (ArgumentException e)
+                {
+                    // Include package name context in the exception.
+                    throw new PackagingException(
+                        string.Format(
+                            CultureInfo.CurrentCulture,
+                            Strings.InvalidPackageFrameworkFolderName,
+                            string.Join("/", pathTokens),
+                            GetIdentity()),
+                        e);
                 }
             }
 

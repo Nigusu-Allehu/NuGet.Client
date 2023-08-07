@@ -77,7 +77,11 @@ namespace NuGet.Commands
 
                     List<(List<SelectionCriteria> orderedCriteria, bool fallbackUsed)> orderedCriteriaSets = cache.GetLabeledSelectionCriteria(targetGraph, framework);
                     var contentItems = cache.GetContentItems(library, package);
-
+                    NuGetFileLogger.DefaultInstance.Write($"Content items for {package.Id} {package.Version}");
+                    foreach (Asset asset in contentItems.Assets)
+                    {
+                        NuGetFileLogger.DefaultInstance.Write(asset.ToString());
+                    }
                     var packageTypes = nuspec.GetPackageTypes().AsList();
                     bool fallbackUsed = false;
 

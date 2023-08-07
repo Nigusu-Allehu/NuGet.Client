@@ -28,6 +28,9 @@ namespace NuGet.Protocol
         private readonly ConcurrentDictionary<string, Lazy<IReadOnlyList<string>>> _filesCache
             = new ConcurrentDictionary<string, Lazy<IReadOnlyList<string>>>(PathUtility.GetStringComparerBasedOnOS());
 
+        private readonly ConcurrentDictionary<string, Lazy<IReadOnlyList<List<string>>>> _filesCacheTokenized
+            = new ConcurrentDictionary<string, Lazy<IReadOnlyList<List<string>>>>(PathUtility.GetStringComparerBasedOnOS());
+
         // SHA512 path -> SHA512
         private readonly ConcurrentDictionary<string, Lazy<string>> _sha512Cache
             = new ConcurrentDictionary<string, Lazy<string>>(PathUtility.GetStringComparerBasedOnOS());
@@ -60,10 +63,12 @@ namespace NuGet.Protocol
         /// <summary>
         /// Read a the package files from disk.
         /// </summary>
-        public virtual Lazy<IReadOnlyList<string>> GetOrAddFiles(string expandedPath)
+#pragma warning disable RS0016 // Add public types and members to the declared API
+        public virtual Lazy<IReadOnlyList<List<string>>> GetOrAddFiles(string expandedPath)
+#pragma warning restore RS0016 // Add public types and members to the declared API
         {
-            return _filesCache.GetOrAdd(expandedPath,
-                e => new Lazy<IReadOnlyList<string>>(() => GetFiles(e)));
+            return _filesCacheTokenized.GetOrAdd(expandedPath,
+                e => new Lazy<IReadOnlyList<List<string>>>(() => GetFiles(e)));
         }
 
         /// <summary>
@@ -135,13 +140,13 @@ namespace NuGet.Protocol
         /// <summary>
         /// Read files from a package folder.
         /// </summary>
-        private static IReadOnlyList<string> GetFiles(string expandedPath)
+        private static IReadOnlyList<List<string>> GetFiles(string expandedPath)
         {
             using (var packageReader = new PackageFolderReader(expandedPath))
             {
                 // Get package files, excluding directory entries and OPC files
                 // This is sorted before it is written out
-                return packageReader.GetFiles()
+                return packageReader.GetFilesTokenized()
                     .Where(file => IsAllowedLibraryFile(file))
                     .ToList()
                     .AsReadOnly();
@@ -150,19 +155,31 @@ namespace NuGet.Protocol
 
         /// <summary>
         /// True if the file should be added to the lock file library
-        /// Fale if it is an OPC file or empty directory
+        /// False if it is an OPC file or empty directory
         /// </summary>
-        private static bool IsAllowedLibraryFile(string path)
+        private static bool IsAllowedLibraryFile(List<string> pathTokens)
         {
-            switch (path)
+            if (pathTokens.Count == 0) return false;
+
+            // Directly analyze the tokenized path
+            if (pathTokens.Count == 2 && pathTokens[0] == "_rels" && pathTokens[1] == ".rels")
             {
-                case "_rels/.rels":
-                case "[Content_Types].xml":
-                    return false;
+                return false;
             }
 
-            if (path.EndsWith("/", StringComparison.Ordinal)
-                || path.EndsWith(".psmdcp", StringComparison.Ordinal))
+            if (pathTokens.Count == 1 && pathTokens[0] == "[Content_Types].xml")
+            {
+                return false;
+            }
+
+            // Check if it ends with "/"
+            if (pathTokens[pathTokens.Count - 1].EndsWith("/", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            // Check if it ends with ".psmdcp"
+            if (pathTokens[pathTokens.Count - 1].EndsWith(".psmdcp", StringComparison.Ordinal))
             {
                 return false;
             }

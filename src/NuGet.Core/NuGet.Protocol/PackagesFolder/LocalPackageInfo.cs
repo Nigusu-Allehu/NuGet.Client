@@ -17,6 +17,7 @@ namespace NuGet.Repositories
     {
         private readonly Lazy<NuspecReader> _nuspec;
         private readonly Lazy<IReadOnlyList<string>> _files;
+        private readonly Lazy<IReadOnlyList<List<string>>> _filesTokenized;
         private readonly Lazy<string> _sha512;
         private readonly Lazy<RuntimeGraph> _runtimeGraph;
 
@@ -40,6 +41,31 @@ namespace NuGet.Repositories
             Sha512Path = sha512Path;
             _nuspec = nuspec;
             _files = files;
+            _sha512 = sha512;
+            _runtimeGraph = runtimeGraph;
+        }
+#pragma warning disable RS0016 // Add public types and members to the declared API
+        public LocalPackageInfo(
+#pragma warning restore RS0016 // Add public types and members to the declared API
+            string packageId,
+            NuGetVersion version,
+            string path,
+            string manifestPath,
+            string zipPath,
+            string sha512Path,
+            Lazy<NuspecReader> nuspec,
+            Lazy<IReadOnlyList<List<string>>> files,
+            Lazy<string> sha512,
+            Lazy<RuntimeGraph> runtimeGraph)
+        {
+            Id = packageId;
+            Version = version;
+            ExpandedPath = path;
+            ManifestPath = manifestPath;
+            ZipPath = zipPath;
+            Sha512Path = sha512Path;
+            _nuspec = nuspec;
+            _filesTokenized = files;
             _sha512 = sha512;
             _runtimeGraph = runtimeGraph;
         }

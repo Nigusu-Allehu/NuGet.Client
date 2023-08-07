@@ -12,6 +12,9 @@ namespace NuGet.ContentModel
     public class ContentItemCollection
     {
         private List<Asset> _assets;
+#pragma warning disable RS0016 // Add public types and members to the declared API
+        public List<Asset> Assets => _assets;
+#pragma warning restore RS0016 // Add public types and members to the declared API
         private ConcurrentDictionary<string, string> _assemblyRelatedExtensions;
 
         /// <summary>

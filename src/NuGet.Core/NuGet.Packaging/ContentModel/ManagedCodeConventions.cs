@@ -7,6 +7,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using NuGet.ContentModel;
 using NuGet.Frameworks;
+using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.RuntimeModel;
 
@@ -38,19 +39,23 @@ namespace NuGet.Client
             int length,
             PatternTable table)
         {
-            string name = path.AsSpan(startIndex, length).ToString();
             switch (parserType)
             {
                 case ParserType.Local_parser:
-                    return Locale_Parser(name, table);
+                    NuGetFileLogger.DefaultInstance.Write("Local_parser");
+                    return Locale_Parser(path.AsSpan().Slice(startIndex, length).ToString(), table);
                 case ParserType.AllowEmptyFolderParser:
-                    return AllowEmptyFolderParser(name, table);
+                    NuGetFileLogger.DefaultInstance.Write("AllowEmptyFolderParser");
+                    return AllowEmptyFolderParser(path.AsSpan().Slice(startIndex, length).ToString(), table);
                 case ParserType.CodeLanguage_Parser:
-                    return CodeLanguage_Parser(name, table);
+                    NuGetFileLogger.DefaultInstance.Write("CodeLanguage_Parser");
+                    return CodeLanguage_Parser(path.AsSpan().Slice(startIndex, length).ToString(), table);
                 case ParserType.All_strings:
-                    return name;
+                    NuGetFileLogger.DefaultInstance.Write("All_strings");
+                    return path.AsSpan().Slice(startIndex, length).ToString();
                 case ParserType.TargetFrameworkName_Parser:
-                    return TargetFrameworkName_Parser(name, table, framework);
+                    NuGetFileLogger.DefaultInstance.Write("TargetFrameworkName_Parser");
+                    return TargetFrameworkName_Parser(path.AsSpan().Slice(startIndex, length), table, framework);
                 default: return null;
             }
         }
@@ -203,37 +208,38 @@ namespace NuGet.Client
         }
 
         private static object TargetFrameworkName_Parser(
-            string name,
+            ReadOnlySpan<char> name,
             PatternTable table,
             Dictionary<string, NuGetFramework> frameworkCache)
         {
+            NuGetFileLogger.DefaultInstance.Write($"Parsing TFM: {name.ToString()}");
             object obj = null;
 
             // Check for replacements
             if (table != null)
             {
-                if (table.TryLookup(PropertyNames.TargetFrameworkMoniker, name, out obj))
+                if (table.TryLookup(PropertyNames.TargetFrameworkMoniker, name.ToString(), out obj))
                 {
                     return obj;
                 }
             }
 
             // Check the cache for an exact match
-            if (!string.IsNullOrEmpty(name))
+            if (!(name == null || name.IsEmpty))
             {
                 NuGetFramework cachedResult;
-                if (!frameworkCache.TryGetValue(name, out cachedResult))
+                if (!frameworkCache.TryGetValue(name.ToString(), out cachedResult))
                 {
                     // Parse and add the framework to the cache
-                    cachedResult = TargetFrameworkName_ParserCore(name);
-                    frameworkCache.Add(name, cachedResult);
+                    cachedResult = TargetFrameworkName_ParserCore(name.ToString());
+                    frameworkCache.Add(name.ToString(), cachedResult);
                 }
 
                 return cachedResult;
             }
 
             // Let the framework parser handle null/empty and create the error message.
-            return TargetFrameworkName_ParserCore(name);
+            return TargetFrameworkName_ParserCore(name.ToString());
         }
 
         private static NuGetFramework TargetFrameworkName_ParserCore(string name)

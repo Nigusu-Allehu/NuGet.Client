@@ -32,7 +32,8 @@ namespace NuGet.Client.Test
 
             var conventions = new ManagedCodeConventions(runtimeGraph);
 
-            var collection = new ContentItemCollection();
+            var collection = new 
+                );
             collection.Load(new string[]
             {
                 "runtimes/win7-x64/native/a.dll",

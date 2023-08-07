@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using NuGet.Packaging;
 
 namespace NuGet.ContentModel.Infrastructure
 {
@@ -171,6 +172,7 @@ namespace NuGet.ContentModel.Infrastructure
                 int startIndex,
                 out int endIndex)
             {
+                NuGetFileLogger.DefaultInstance.Write($"Parsing the path {path} and the token is {_token}");
                 ContentPropertyDefinition propertyDefinition;
                 if (!propertyDefinitions.TryGetValue(_token, out propertyDefinition))
                 {

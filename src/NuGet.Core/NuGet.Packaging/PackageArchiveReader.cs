@@ -590,5 +590,12 @@ namespace NuGet.Packaging
                 return SignedPackageArchiveUtility.GetPackageContentHash(reader);
             }
         }
+
+#pragma warning disable RS0016 // Add public types and members to the declared API
+        public override IEnumerable<List<string>> GetFilesTokenized(string folder)
+#pragma warning restore RS0016 // Add public types and members to the declared API
+        {
+            throw new NotImplementedException();
+        }
     }
 }

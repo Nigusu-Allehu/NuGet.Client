@@ -22,7 +22,8 @@ namespace NuGet.Client.Test
                 new RuntimeGraph(
                     new List<CompatibilityProfile>() { new CompatibilityProfile("netcore50.app") }));
 
-            var collection = new ContentItemCollection();
+            var collection = new 
+                );
             collection.Load(new string[]
             {
                 "runtimes/aot/lib/netcore50/System.Reflection.Emit.dll",

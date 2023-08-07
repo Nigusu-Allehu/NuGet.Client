@@ -145,6 +145,35 @@ namespace NuGet.Packaging
             yield break;
         }
 
+
+#pragma warning disable RS0016 // Add public types and members to the declared API
+        public override IEnumerable<List<string>> GetFilesTokenized(string folder)
+#pragma warning restore RS0016 // Add public types and members to the declared API
+        {
+            var getFiles = true;
+            var searchFolder = new DirectoryInfo(_root.FullName);
+
+            if (!string.IsNullOrEmpty(folder))
+            {
+                searchFolder = new DirectoryInfo(Path.Combine(_root.FullName, folder));
+                getFiles = searchFolder.Exists;
+            }
+
+            if (getFiles)
+            {
+                foreach (var file in searchFolder.GetFiles("*", SearchOption.AllDirectories))
+                {
+                    var pathTokens = GetRelativePathTokens(_root, file);
+
+                    // Verify if the file is in root
+                    if (pathTokens.Count > 1 || !IsNupkg(pathTokens.Last()))
+                    {
+                        yield return pathTokens;
+                    }
+                }
+            }
+        }
+
         /// <summary>
         /// True if the path does not contain /
         /// </summary>
@@ -190,6 +219,35 @@ namespace NuGet.Packaging
             var parts = parents.Select(d => d.Name).Concat(new string[] { file.Name });
 
             return string.Join("/", parts);
+        }
+
+        /// <summary>
+        /// <param name="root"></param>
+        /// <param name="file"></param>
+        /// <returns>Build the relative path in the same format that ZipArchive uses and return the path tokenized</returns>
+        /// <exception cref="FileNotFoundException"></exception>
+        /// </summary>
+        private static List<string> GetRelativePathTokens(DirectoryInfo root, FileInfo file)
+        {
+            var tokens = new List<string>();
+
+            var parent = file.Directory;
+
+            while (parent != null && !StringComparer.OrdinalIgnoreCase.Equals(parent.FullName, root.FullName))
+            {
+                tokens.Insert(0, parent.Name);
+                parent = parent.Parent;
+            }
+
+            if (parent == null)
+            {
+                // the given file path does not appear under root
+                throw new FileNotFoundException(file.FullName);
+            }
+
+            tokens.Add(file.Name);
+
+            return tokens;
         }
 
         public override IEnumerable<string> CopyFiles(
