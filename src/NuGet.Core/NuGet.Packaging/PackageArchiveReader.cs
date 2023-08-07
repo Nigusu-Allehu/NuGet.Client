@@ -597,5 +597,12 @@ namespace NuGet.Packaging
         {
             throw new NotImplementedException();
         }
+
+#pragma warning disable RS0016 // Add public types and members to the declared API
+        public override IEnumerable<List<string>> GetFilesTokenized()
+#pragma warning restore RS0016 // Add public types and members to the declared API
+        {
+            throw new NotImplementedException();
+        }
     }
 }

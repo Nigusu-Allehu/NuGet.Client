@@ -109,6 +109,13 @@ namespace NuGet.Packaging
             // Read all files starting at the root.
             return GetFiles(folder: null);
         }
+#pragma warning disable RS0016 // Add public types and members to the declared API
+        public override IEnumerable<List<string>> GetFilesTokenized()
+#pragma warning restore RS0016 // Add public types and members to the declared API
+        {
+            // Read all files starting at the root.
+            return GetFilesTokenized(folder: null);
+        }
 
         public override IEnumerable<string> GetFiles(string folder)
         {
